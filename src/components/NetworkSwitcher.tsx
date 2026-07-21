@@ -1,6 +1,7 @@
 import { useAccount, useChainId, useSwitchChain } from "wagmi";
 import { polygon, polygonAmoy } from "wagmi/chains";
 import { useToast } from "./ToastContext";
+import { useWalletBusy } from "./WalletBusyContext";
 
 const NETWORKS = [
   { id: polygon.id, label: "Polygon Mainnet" },
@@ -17,6 +18,7 @@ export function NetworkSwitcher() {
   const { isConnected } = useAccount();
   const { switchChain, isPending } = useSwitchChain();
   const { showToast } = useToast();
+  const { isBusy } = useWalletBusy();
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const nextId = Number(e.target.value);
@@ -24,6 +26,11 @@ export function NetworkSwitcher() {
 
     if (!isConnected) {
       showToast("先にMetaMaskを接続してください");
+      return;
+    }
+
+    if (isBusy) {
+      showToast("処理中です。完了してからネットワークを切り替えてください");
       return;
     }
 
@@ -39,7 +46,7 @@ export function NetworkSwitcher() {
 
   return (
     <div className="pill-select">
-      <select value={chainId} onChange={handleChange} disabled={isPending}>
+      <select value={chainId} onChange={handleChange} disabled={isPending || isBusy}>
         {NETWORKS.map((n) => (
           <option key={n.id} value={n.id}>
             {n.label}

@@ -5,7 +5,9 @@ import { useAccount, useChainId, useDeployContract, useWaitForTransactionReceipt
 import { GensoMultisigAbi, GensoMultisigBytecode } from "../contracts/GensoMultisig";
 import { useMultisigWallets } from "../hooks/useMultisigWallets";
 import { useToast } from "../components/ToastContext";
+import { useWalletBusy } from "../components/WalletBusyContext";
 import { BackHeader } from "../components/BackHeader";
+import { getErrorHint, getErrorMessage } from "../lib/errors";
 
 export function MultisigCreate() {
   const navigate = useNavigate();
@@ -13,6 +15,7 @@ export function MultisigCreate() {
   const chainId = useChainId();
   const { add } = useMultisigWallets();
   const { showToast } = useToast();
+  const { setBusy } = useWalletBusy();
 
   const [name, setName] = useState("");
   const [threshold, setThreshold] = useState(1);
@@ -55,7 +58,12 @@ export function MultisigCreate() {
 
   useEffect(() => {
     if (deployError) {
-      showToast("デプロイに失敗しました: " + deployError.message.slice(0, 80));
+      const hint = getErrorHint(deployError);
+      showToast(
+        "デプロイに失敗しました: " +
+          getErrorMessage(deployError) +
+          (hint ? ` / ${hint}` : "")
+      );
     }
   }, [deployError, showToast]);
 
@@ -90,10 +98,16 @@ export function MultisigCreate() {
       abi: GensoMultisigAbi,
       bytecode: GensoMultisigBytecode,
       args: [name.trim(), validOwners as `0x${string}`[], BigInt(threshold)],
+      chainId,
     });
   };
 
   const busy = isDeploying || isWaiting;
+
+  useEffect(() => {
+    setBusy(busy);
+    return () => setBusy(false);
+  }, [busy, setBusy]);
 
   return (
     <>

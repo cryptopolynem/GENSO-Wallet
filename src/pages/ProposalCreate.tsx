@@ -8,6 +8,8 @@ import { getTokens } from "../lib/tokens";
 import { parseTokenAmount } from "../lib/format";
 import { BackHeader } from "../components/BackHeader";
 import { useToast } from "../components/ToastContext";
+import { useWalletBusy } from "../components/WalletBusyContext";
+import { getErrorHint, getErrorMessage } from "../lib/errors";
 import type { ProposalType } from "../types";
 import { PROPOSAL_TYPE_LABEL } from "../types";
 
@@ -20,6 +22,7 @@ export function ProposalCreate() {
   const navigate = useNavigate();
   const chainId = useChainId();
   const { showToast } = useToast();
+  const { setBusy } = useWalletBusy();
   const { owners, threshold: currentThreshold } = useMultisigInfo(walletAddress);
 
   const [type, setType] = useState<ProposalType>("NativeTransfer");
@@ -50,7 +53,10 @@ export function ProposalCreate() {
 
   useEffect(() => {
     if (error) {
-      showToast("Proposal作成に失敗しました: " + error.message.slice(0, 80));
+      const hint = getErrorHint(error);
+      showToast(
+        "Proposal作成に失敗しました: " + getErrorMessage(error) + (hint ? ` / ${hint}` : "")
+      );
     }
   }, [error, showToast]);
 
@@ -106,6 +112,7 @@ export function ProposalCreate() {
     if (type === "NativeTransfer") {
       writeContract({
         address: walletAddress,
+        chainId,
         abi: GensoMultisigAbi,
         functionName: "proposeNativeTransfer",
         args: [finalTitle, description, to as Address, parseTokenAmount(amount, 18)],
@@ -113,6 +120,7 @@ export function ProposalCreate() {
     } else if (type === "ERC20Transfer" && erc20Token?.address) {
       writeContract({
         address: walletAddress,
+        chainId,
         abi: GensoMultisigAbi,
         functionName: "proposeERC20Transfer",
         args: [
@@ -126,6 +134,7 @@ export function ProposalCreate() {
     } else if (type === "ERC721Transfer") {
       writeContract({
         address: walletAddress,
+        chainId,
         abi: GensoMultisigAbi,
         functionName: "proposeERC721Transfer",
         args: [
@@ -139,6 +148,7 @@ export function ProposalCreate() {
     } else if (type === "AddOwner") {
       writeContract({
         address: walletAddress,
+        chainId,
         abi: GensoMultisigAbi,
         functionName: "proposeAddOwner",
         args: [finalTitle, description, targetOwner as Address],
@@ -146,6 +156,7 @@ export function ProposalCreate() {
     } else if (type === "RemoveOwner") {
       writeContract({
         address: walletAddress,
+        chainId,
         abi: GensoMultisigAbi,
         functionName: "proposeRemoveOwner",
         args: [finalTitle, description, targetOwner as Address],
@@ -153,6 +164,7 @@ export function ProposalCreate() {
     } else if (type === "ChangeThreshold") {
       writeContract({
         address: walletAddress,
+        chainId,
         abi: GensoMultisigAbi,
         functionName: "proposeChangeThreshold",
         args: [finalTitle, description, BigInt(newThreshold)],
@@ -161,6 +173,11 @@ export function ProposalCreate() {
   };
 
   const busy = isPending || isWaiting;
+
+  useEffect(() => {
+    setBusy(busy);
+    return () => setBusy(false);
+  }, [busy, setBusy]);
 
   return (
     <>

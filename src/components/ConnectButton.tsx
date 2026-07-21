@@ -2,12 +2,14 @@ import { useState } from "react";
 import { useAccount, useConnect, useDisconnect } from "wagmi";
 import { shortenAddress } from "../lib/format";
 import { useToast } from "./ToastContext";
+import { useWalletBusy } from "./WalletBusyContext";
 
 export function ConnectButton() {
   const { address, isConnected, isConnecting } = useAccount();
   const { connectors, connect, isPending } = useConnect();
   const { disconnect } = useDisconnect();
   const { showToast } = useToast();
+  const { isBusy } = useWalletBusy();
   const [menuOpen, setMenuOpen] = useState(false);
 
   if (isConnected && address) {
@@ -31,7 +33,12 @@ export function ConnectButton() {
             <button
               className="btn btn-danger btn-sm"
               style={{ width: "100%" }}
+              disabled={isBusy}
               onClick={() => {
+                if (isBusy) {
+                  showToast("処理中です。完了してから切断してください");
+                  return;
+                }
                 disconnect();
                 setMenuOpen(false);
               }}

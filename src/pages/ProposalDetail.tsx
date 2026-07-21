@@ -8,6 +8,8 @@ import { formatDateTime, formatTokenAmount, shortenAddress } from "../lib/format
 import { PROPOSAL_STATUS_LABEL, PROPOSAL_TYPE_LABEL } from "../types";
 import { BackHeader } from "../components/BackHeader";
 import { useToast } from "../components/ToastContext";
+import { useWalletBusy } from "../components/WalletBusyContext";
+import { getErrorHint, getErrorMessage } from "../lib/errors";
 import { getTokens } from "../lib/tokens";
 import { useChainId } from "wagmi";
 
@@ -23,6 +25,7 @@ export function ProposalDetail() {
   const proposalId = id !== undefined ? BigInt(id) : undefined;
   const chainId = useChainId();
   const { showToast } = useToast();
+  const { setBusy } = useWalletBusy();
   const { address: account } = useAccount();
 
   const { threshold, owners, refetch: refetchInfo } = useMultisigInfo(walletAddress);
@@ -35,6 +38,12 @@ export function ProposalDetail() {
 
   const { writeContract, data: txHash, isPending, error } = useWriteContract();
   const { isLoading: isWaiting, isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
+  const busy = isPending || isWaiting;
+
+  useEffect(() => {
+    setBusy(busy);
+    return () => setBusy(false);
+  }, [busy, setBusy]);
 
   useEffect(() => {
     if (isSuccess) {
@@ -48,7 +57,8 @@ export function ProposalDetail() {
 
   useEffect(() => {
     if (error) {
-      showToast("投票に失敗しました: " + error.message.slice(0, 80));
+      const hint = getErrorHint(error);
+      showToast("投票に失敗しました: " + getErrorMessage(error) + (hint ? ` / ${hint}` : ""));
     }
   }, [error, showToast]);
 
@@ -65,6 +75,7 @@ export function ProposalDetail() {
     if (proposalId === undefined) return;
     writeContract({
       address: walletAddress,
+      chainId,
       abi: GensoMultisigAbi,
       functionName: "vote",
       args: [proposalId, approve],
@@ -92,7 +103,6 @@ export function ProposalDetail() {
     return null;
   };
 
-  const busy = isPending || isWaiting;
   const progress = threshold > 0 ? Math.min(100, (proposal.approvalCount / threshold) * 100) : 0;
   const canVote = proposal.status === "Pending" && isOwner && !hasVoted;
 
