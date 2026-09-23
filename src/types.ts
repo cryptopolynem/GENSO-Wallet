@@ -23,7 +23,8 @@ export type ProposalType =
   | "AddOwner"
   | "RemoveOwner"
   | "ChangeThreshold"
-  | "ERC721Transfer";
+  | "ERC721Transfer"
+  | "ERC1155Transfer";
 
 /** Proposal の状態 */
 export type ProposalStatus = "Pending" | "Executed" | "Rejected";
@@ -36,6 +37,7 @@ export interface ProposalView {
   target: Address;
   token: Address;
   amount: bigint;
+  quantity: bigint;
   title: string;
   description: string;
   createdAt: number;
@@ -57,6 +59,7 @@ export const PROPOSAL_TYPE_LABEL: Record<ProposalType, string> = {
   NativeTransfer: "POL送金",
   ERC20Transfer: "トークン送金",
   ERC721Transfer: "NFT出庫",
+  ERC1155Transfer: "マルチトークン出庫",
   AddOwner: "承認者追加",
   RemoveOwner: "承認者削除",
   ChangeThreshold: "Threshold変更",
