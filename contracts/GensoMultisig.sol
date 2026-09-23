@@ -16,7 +16,8 @@ contract GensoMultisig {
         AddOwner, // 承認者追加
         RemoveOwner, // 承認者削除
         ChangeThreshold, // Threshold変更
-        ERC721Transfer // NFT出庫（ERC721送金）
+        ERC721Transfer, // NFT出庫（ERC721送金）
+        ERC1155Transfer // マルチトークン出庫（ERC1155送金）
     }
 
     enum ProposalStatus {
@@ -30,8 +31,9 @@ contract GensoMultisig {
         ProposalType proposalType;
         address proposer;
         address target; // 送金先 or 追加/削除対象の承認者アドレス
-        address token; // ERC20/ERC721送金の場合のトークン(NFT)コントラクトアドレス（0x0はネイティブ）
-        uint256 amount; // 送金額 or 新Threshold or NFTのtokenId（ERC721Transferの場合）
+        address token; // ERC20/ERC721/ERC1155送金の場合のトークン(NFT)コントラクトアドレス（0x0はネイティブ）
+        uint256 amount; // 送金額 or 新Threshold or NFT/ERC1155のtokenId（ERC721/ERC1155Transferの場合）
+        uint256 quantity; // ERC1155Transferの場合の送金個数（それ以外は0）
         string title;
         string description;
         uint256 createdAt;
@@ -177,6 +179,30 @@ contract GensoMultisig {
             );
     }
 
+    /// @notice ERC1155（マルチトークン）の出庫Proposalを作成する
+    function proposeERC1155Transfer(
+        string memory _title,
+        string memory _description,
+        address _token,
+        uint256 _tokenId,
+        address _to,
+        uint256 _quantity
+    ) external onlyOwner returns (uint256) {
+        require(_to != address(0), "GensoMultisig: zero address");
+        require(_token != address(0), "GensoMultisig: zero token");
+        require(_quantity > 0, "GensoMultisig: zero quantity");
+        return
+            _createProposal(
+                ProposalType.ERC1155Transfer,
+                _title,
+                _description,
+                _to,
+                _token,
+                _tokenId,
+                _quantity
+            );
+    }
+
     function proposeAddOwner(
         string memory _title,
         string memory _description,
@@ -238,6 +264,18 @@ contract GensoMultisig {
         address _token,
         uint256 _amount
     ) internal returns (uint256) {
+        return _createProposal(_type, _title, _description, _target, _token, _amount, 0);
+    }
+
+    function _createProposal(
+        ProposalType _type,
+        string memory _title,
+        string memory _description,
+        address _target,
+        address _token,
+        uint256 _amount,
+        uint256 _quantity
+    ) internal returns (uint256) {
         uint256 id = proposalCount;
         proposals[id] = Proposal({
             id: id,
@@ -246,6 +284,7 @@ contract GensoMultisig {
             target: _target,
             token: _token,
             amount: _amount,
+            quantity: _quantity,
             title: _title,
             description: _description,
             createdAt: block.timestamp,
@@ -299,6 +338,8 @@ contract GensoMultisig {
             _erc20Transfer(p.token, p.target, p.amount);
         } else if (p.proposalType == ProposalType.ERC721Transfer) {
             _erc721Transfer(p.token, p.target, p.amount);
+        } else if (p.proposalType == ProposalType.ERC1155Transfer) {
+            _erc1155Transfer(p.token, p.target, p.amount, p.quantity);
         } else if (p.proposalType == ProposalType.AddOwner) {
             isOwner[p.target] = true;
             owners.push(p.target);
@@ -355,6 +396,26 @@ contract GensoMultisig {
         require(success, "GensoMultisig: erc721 transfer failed");
     }
 
+    function _erc1155Transfer(
+        address _token,
+        address _to,
+        uint256 _tokenId,
+        uint256 _quantity
+    ) internal {
+        // safeTransferFrom(address,address,uint256,uint256,bytes) を直接呼び出す
+        (bool success, ) = _token.call(
+            abi.encodeWithSignature(
+                "safeTransferFrom(address,address,uint256,uint256,bytes)",
+                address(this),
+                _to,
+                _tokenId,
+                _quantity,
+                ""
+            )
+        );
+        require(success, "GensoMultisig: erc1155 transfer failed");
+    }
+
     /// @notice ERC721のsafeTransferFrom受け取りに対応するためのフック
     function onERC721Received(
         address,
@@ -363,6 +424,28 @@ contract GensoMultisig {
         bytes calldata
     ) external pure returns (bytes4) {
         return this.onERC721Received.selector;
+    }
+
+    /// @notice ERC1155のsafeTransferFrom受け取りに対応するためのフック
+    function onERC1155Received(
+        address,
+        address,
+        uint256,
+        uint256,
+        bytes calldata
+    ) external pure returns (bytes4) {
+        return this.onERC1155Received.selector;
+    }
+
+    /// @notice ERC1155のsafeBatchTransferFrom受け取りに対応するためのフック
+    function onERC1155BatchReceived(
+        address,
+        address,
+        uint256[] calldata,
+        uint256[] calldata,
+        bytes calldata
+    ) external pure returns (bytes4) {
+        return this.onERC1155BatchReceived.selector;
     }
 
     // ------------------------------------------------------------------
