@@ -11,6 +11,7 @@ const PROPOSAL_TYPE_MAP: ProposalType[] = [
   "RemoveOwner",
   "ChangeThreshold",
   "ERC721Transfer",
+  "ERC1155Transfer",
 ];
 
 const PROPOSAL_STATUS_MAP: ProposalStatus[] = ["Pending", "Executed", "Rejected"];
@@ -68,6 +69,7 @@ interface RawProposal {
   target: Address;
   token: Address;
   amount: bigint;
+  quantity: bigint;
   title: string;
   description: string;
   createdAt: bigint;
@@ -84,6 +86,7 @@ function toProposalView(raw: RawProposal): ProposalView {
     target: raw.target,
     token: raw.token,
     amount: raw.amount,
+    quantity: raw.quantity,
     title: raw.title,
     description: raw.description,
     createdAt: Number(raw.createdAt),
