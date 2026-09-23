@@ -100,6 +100,9 @@ export function ProposalDetail() {
     if (proposal.proposalType === "ERC721Transfer") {
       return `Token ID: ${proposal.amount.toString()}`;
     }
+    if (proposal.proposalType === "ERC1155Transfer") {
+      return `Token ID: ${proposal.amount.toString()} / 数量: ${proposal.quantity.toString()}`;
+    }
     return null;
   };
 
@@ -158,10 +161,13 @@ export function ProposalDetail() {
               </div>
             </div>
           )}
-          {proposal.proposalType === "ERC721Transfer" && (
+          {(proposal.proposalType === "ERC721Transfer" ||
+            proposal.proposalType === "ERC1155Transfer") && (
             <>
               <div className="stat-box">
-                <div className="label">NFTコントラクト</div>
+                <div className="label">
+                  {proposal.proposalType === "ERC721Transfer" ? "NFTコントラクト" : "ERC1155コントラクト"}
+                </div>
                 <div className="value" style={{ fontSize: 12.5 }}>
                   {shortenAddress(proposal.token)}
                 </div>

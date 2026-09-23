@@ -13,7 +13,12 @@ import { getErrorHint, getErrorMessage } from "../lib/errors";
 import type { ProposalType } from "../types";
 import { PROPOSAL_TYPE_LABEL } from "../types";
 
-const TRANSFER_TYPES: ProposalType[] = ["NativeTransfer", "ERC20Transfer", "ERC721Transfer"];
+const TRANSFER_TYPES: ProposalType[] = [
+  "NativeTransfer",
+  "ERC20Transfer",
+  "ERC721Transfer",
+  "ERC1155Transfer",
+];
 const GOVERNANCE_TYPES: ProposalType[] = ["AddOwner", "RemoveOwner", "ChangeThreshold"];
 
 export function ProposalCreate() {
@@ -36,6 +41,10 @@ export function ProposalCreate() {
   const [nftAddress, setNftAddress] = useState("");
   const [nftTokenId, setNftTokenId] = useState("");
   const [nftTo, setNftTo] = useState("");
+  const [multiTokenAddress, setMultiTokenAddress] = useState("");
+  const [multiTokenId, setMultiTokenId] = useState("");
+  const [multiTokenTo, setMultiTokenTo] = useState("");
+  const [multiTokenQuantity, setMultiTokenQuantity] = useState("");
 
   const tokens = getTokens(chainId);
   const erc20Token = tokens.find((t) => t.symbol === tokenSymbol);
@@ -68,6 +77,8 @@ export function ProposalCreate() {
         return `${tokenSymbol}送金: ${amount || "0"} ${tokenSymbol}`;
       case "ERC721Transfer":
         return `NFT出庫: Token ID ${nftTokenId || "-"}`;
+      case "ERC1155Transfer":
+        return `マルチトークン出庫: Token ID ${multiTokenId || "-"} x ${multiTokenQuantity || "0"}`;
       case "AddOwner":
         return "承認者の追加";
       case "RemoveOwner":
@@ -86,6 +97,24 @@ export function ProposalCreate() {
       if (!isAddress(nftAddress)) return false;
       if (!isAddress(nftTo)) return false;
       if (!nftTokenId || Number(nftTokenId) < 0 || !Number.isInteger(Number(nftTokenId))) {
+        return false;
+      }
+    }
+    if (type === "ERC1155Transfer") {
+      if (!isAddress(multiTokenAddress)) return false;
+      if (!isAddress(multiTokenTo)) return false;
+      if (
+        !multiTokenId ||
+        Number(multiTokenId) < 0 ||
+        !Number.isInteger(Number(multiTokenId))
+      ) {
+        return false;
+      }
+      if (
+        !multiTokenQuantity ||
+        Number(multiTokenQuantity) <= 0 ||
+        !Number.isInteger(Number(multiTokenQuantity))
+      ) {
         return false;
       }
     }
@@ -143,6 +172,21 @@ export function ProposalCreate() {
           nftAddress as Address,
           BigInt(nftTokenId),
           nftTo as Address,
+        ],
+      });
+    } else if (type === "ERC1155Transfer") {
+      writeContract({
+        address: walletAddress,
+        chainId,
+        abi: GensoMultisigAbi,
+        functionName: "proposeERC1155Transfer",
+        args: [
+          finalTitle,
+          description,
+          multiTokenAddress as Address,
+          BigInt(multiTokenId),
+          multiTokenTo as Address,
+          BigInt(multiTokenQuantity),
         ],
       });
     } else if (type === "AddOwner") {
@@ -268,6 +312,50 @@ export function ProposalCreate() {
                 placeholder="0x..."
                 value={nftTo}
                 onChange={(e) => setNftTo(e.target.value)}
+              />
+            </div>
+          </>
+        )}
+
+        {type === "ERC1155Transfer" && (
+          <>
+            <div className="field">
+              <label>ERC1155コントラクトアドレス</label>
+              <input
+                type="text"
+                placeholder="0x..."
+                value={multiTokenAddress}
+                onChange={(e) => setMultiTokenAddress(e.target.value)}
+              />
+              <span className="field-hint">ERC1155（マルチトークン規格）のコントラクトアドレス</span>
+            </div>
+            <div className="field">
+              <label>Token ID</label>
+              <input
+                type="number"
+                min={0}
+                placeholder="例: 1234"
+                value={multiTokenId}
+                onChange={(e) => setMultiTokenId(e.target.value)}
+              />
+            </div>
+            <div className="field">
+              <label>数量</label>
+              <input
+                type="number"
+                min={1}
+                placeholder="例: 10"
+                value={multiTokenQuantity}
+                onChange={(e) => setMultiTokenQuantity(e.target.value)}
+              />
+            </div>
+            <div className="field">
+              <label>出庫先アドレス</label>
+              <input
+                type="text"
+                placeholder="0x..."
+                value={multiTokenTo}
+                onChange={(e) => setMultiTokenTo(e.target.value)}
               />
             </div>
           </>
